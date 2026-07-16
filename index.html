@@ -157,6 +157,7 @@
     gap:12px;
     align-items:end;
   }
+  .entry-form .field{ min-width:0; }
   .field label{
     display:block;
     font-size:0.68rem;
@@ -167,6 +168,8 @@
   }
   .field input, .field select{
     width:100%;
+    min-width:0;
+    box-sizing:border-box;
     font-family:'Inter',sans-serif;
     font-size:0.9rem;
     padding:8px 9px;
@@ -431,9 +434,42 @@
   }
 
   @media (max-width:720px){
-    .entry-form{ grid-template-columns:1fr 1fr; }
+    .entry-form{ grid-template-columns:1fr; }
     .entry-form .btn{ grid-column:1/-1; }
     .summary-card{ flex-basis:100%; }
+
+    /* Entries table becomes a stack of cards — no horizontal scrolling */
+    .table-scroll{ overflow-x:visible; }
+    .table-scroll table{ min-width:0; width:100%; border-collapse:separate; border-spacing:0; }
+    .table-scroll thead{ display:none; }
+    .table-scroll tbody tr{
+      display:flex;
+      flex-wrap:wrap;
+      border:1px solid var(--rule);
+      border-radius:4px;
+      margin-bottom:10px;
+      padding:10px 12px;
+      background:var(--white);
+    }
+    .table-scroll tbody tr:hover{ background:var(--white); }
+    .table-scroll tbody tr.empty-row{ display:block; border:none; padding:0; }
+    .table-scroll td{
+      border:none;
+      padding:2px 0;
+      font-size:0.85rem;
+    }
+    .table-scroll td.cell-name{ flex:1 1 60%; order:1; font-weight:600; }
+    .table-scroll td.cell-amount{ flex:1 1 40%; order:2; text-align:right; font-weight:600; }
+    .table-scroll td.cell-date{ flex:1 1 60%; order:3; font-size:0.78rem; color:var(--ink-soft); }
+    .table-scroll td.cell-category{ flex:1 1 40%; order:4; text-align:right; }
+    .table-scroll td.cell-actions{
+      order:5;
+      flex:1 1 100%;
+      text-align:right;
+      padding-top:6px;
+      margin-top:4px;
+      border-top:1px solid var(--rule);
+    }
   }
 </style>
 </head>
@@ -730,11 +766,11 @@
     }
     body.innerHTML = list.map(e => `
       <tr>
-        <td>${formatDateDisplay(e.date)}</td>
-        <td>${escapeHtml(e.name)}</td>
-        <td><span class="cat-tag">${escapeHtml(e.category)}</span></td>
-        <td class="num">${fmtMoney(e.amount)}</td>
-        <td><button class="del-btn" data-action="del-expense" data-id="${e.id}" title="Delete entry">✕</button></td>
+        <td class="cell-date">${formatDateDisplay(e.date)}</td>
+        <td class="cell-name">${escapeHtml(e.name)}</td>
+        <td class="cell-category"><span class="cat-tag">${escapeHtml(e.category)}</span></td>
+        <td class="num cell-amount">${fmtMoney(e.amount)}</td>
+        <td class="cell-actions"><button class="del-btn" data-action="del-expense" data-id="${e.id}" title="Delete entry">✕</button></td>
       </tr>
     `).join('');
   }
