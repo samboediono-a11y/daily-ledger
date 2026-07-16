@@ -613,6 +613,10 @@
   let sortKey = "date";
   let sortDir = "desc";
   let chartInstance = null;
+  // Tracks true add-order (not just calendar date) so that when two entries
+  // share the same date, the more recently added one can still be shown
+  // first — matching the "most recent first" pattern used everywhere else.
+  let nextSeq = 1;
 
   const $ = (id) => document.getElementById(id);
   const fmtMoney = (n) => "$" + (Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -686,6 +690,10 @@
       const c = await storage.get('categories');
       if(c && c.value) categories = JSON.parse(c.value);
     }catch(err){ /* keep defaults */ }
+    // Resume the add-order counter above whatever's already been used,
+    // so newly added entries always sort after existing ones.
+    const maxSeq = expenses.reduce((m, e) => Math.max(m, e.seq || 0), 0);
+    nextSeq = maxSeq + 1;
   }
   async function saveExpenses(){
     await storage.set('expenses', JSON.stringify(expenses));
@@ -751,7 +759,10 @@
       if(sortKey === 'amount'){ av = parseFloat(av); bv = parseFloat(bv); }
       if(av < bv) return sortDir === 'asc' ? -1 : 1;
       if(av > bv) return sortDir === 'asc' ? 1 : -1;
-      return 0;
+      // Tie-break: show the more recently added entry first (e.g. two
+      // expenses logged on the same date), regardless of which column
+      // is currently sorted.
+      return (b.seq || 0) - (a.seq || 0);
     });
     return list;
   }
@@ -1059,7 +1070,7 @@
       }
       errBox.style.display = 'none';
 
-      expenses.push({ id: uid(), name, amount, date, category });
+      expenses.push({ id: uid(), name, amount, date, category, seq: nextSeq++ });
       await saveExpenses();
       $('f-name').value = '';
       $('f-amount').value = '';
@@ -1153,7 +1164,7 @@
         if(!proceed) return;
       }
       const sample = getSampleExpenses();
-      sample.forEach(e => expenses.push({ id: uid(), ...e }));
+      sample.forEach(e => expenses.push({ id: uid(), seq: nextSeq++, ...e }));
       await saveExpenses();
       renderAll();
     });
@@ -1192,17 +1203,21 @@
         // Basic sanity-check + normalize each expense record; skip anything malformed
         const cleanExpenses = parsed.expenses
           .filter(e => e && typeof e.name === 'string' && !isNaN(parseFloat(e.amount)) && typeof e.date === 'string' && typeof e.category === 'string')
-          .map(e => ({
+          .map((e, idx) => ({
             id: (typeof e.id === 'string' && e.id) ? e.id : uid(),
             name: e.name,
             amount: parseFloat(e.amount),
             date: e.date,
-            category: e.category
+            category: e.category,
+            // Preserve original add-order from the backup if present;
+            // otherwise fall back to the file's listed order.
+            seq: (typeof e.seq === 'number') ? e.seq : (idx + 1)
           }));
         const cleanCategories = parsed.categories.filter(c => typeof c === 'string' && c.trim());
 
         expenses = cleanExpenses;
         categories = cleanCategories.length ? cleanCategories : categories;
+        nextSeq = expenses.reduce((m, e) => Math.max(m, e.seq || 0), 0) + 1;
         activeFilter = 'All';
         activeMonth = 'All';
         await saveExpenses();
